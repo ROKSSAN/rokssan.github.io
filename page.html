@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>작업 사진 갤러리</title>
+  <meta name="description" content="내 작업 사진을 빠르게 올리고 보여주는 간단 갤러리" />
+  <style>
+    :root {
+      --bg: #0b1020;           /* 다크 배경 */
+      --card: #10172a;
+      --muted: #94a3b8;
+      --text: #e2e8f0;
+      --accent: #60a5fa;
+      --accent-2: #22d3ee;
+      --ring: 0 0 0 2px rgba(96,165,250,.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 600px at 20% -10%, rgba(96,165,250,.12), transparent),
+                  radial-gradient(900px 600px at 100% 0%, rgba(34,211,238,.1), transparent),
+                  var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Apple SD Gothic Neo", "Noto Sans KR", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    header {
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: saturate(140%) blur(8px);
+      background: linear-gradient(to bottom, rgba(10,14,27,.9), rgba(10,14,27,.5));
+      border-bottom: 1px solid rgba(148,163,184,.12);
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 20px; }
+
+    .title {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .title h1 {
+      margin: 0; font-weight: 700; letter-spacing: .2px;
+      font-size: clamp(20px, 3.6vw, 28px);
+    }
+    .title p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    }
+    .btn {
+      appearance: none; border: 1px solid rgba(148,163,184,.22);
+      background: linear-gradient(180deg, #0c1427, #0a1121);
+      color: var(--text); padding: 10px 14px; border-radius: 12px;
+      cursor: pointer; font-weight: 600; font-size: 14px;
+      box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 10px 30px -15px rgba(34,211,238,.35);
+      transition: transform .06s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .btn:hover { border-color: rgba(96,165,250,.7); box-shadow: 0 0 0 2px rgba(96,165,250,.15) inset, 0 12px 35px -18px rgba(96,165,250,.5); }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: linear-gradient(180deg, #0d1a33, #0f1d3a); border-color: rgba(96,165,250,.55); }
+
+    .hint { color: var(--muted); font-size: 12px; }
+
+    /* 업로드 박스 */
+    .dropzone {
+      margin: 16px auto 14px; padding: 18px; border-radius: var(--radius);
+      border: 1px dashed rgba(148,163,184,.35);
+      background: linear-gradient(180deg, rgba(16,23,42,.6), rgba(16,23,42,.38));
+      text-align: center; transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .dropzone.dragover { border-color: var(--accent); box-shadow: var(--ring); }
+    .dropzone p { margin: 0; color: var(--muted); }
+
+    /* 갤러리 그리드 */
+    .gallery {
+      display: grid; gap: 14px; padding: 6px 2px 30px;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+
+    .card {
+      position: relative; overflow: hidden; border-radius: 16px;
+      background: linear-gradient(180deg, #0b1222, #0b1020);
+      border: 1px solid rgba(148,163,184,.2);
+      box-shadow: 0 8px 30px -20px rgba(0,0,0,.6);
+      aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center;
+    }
+    .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .card .overlay {
+      position: absolute; inset: 0; display: grid; place-items: end start;
+      background: linear-gradient(to top, rgba(2,6,23,.8), transparent 45%);
+      opacity: 0; transition: opacity .18s ease;
+      padding: 10px;
+    }
+    .card:hover .overlay { opacity: 1; }
+
+    .name { font-size: 12px; color: #cbd5e1; text-shadow: 0 1px 0 rgba(0,0,0,.4); max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .card .actions {
+      position: absolute; top: 8px; right: 8px; display: flex; gap: 6px;
+    }
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: 12px; border: 1px solid rgba(148,163,184,.28);
+      background: rgba(10,15,28,.7); color: #e5e7eb; display: grid; place-items: center; cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+    .icon-btn:hover { border-color: rgba(96,165,250,.75); box-shadow: var(--ring); }
+
+    /* 라이트박스 */
+    .lightbox { position: fixed; inset: 0; background: rgba(2,6,23,.9); display: none; align-items: center; justify-content: center; z-index: 50; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 92vw; max-height: 86vh; border-radius: 16px; box-shadow: 0 30px 60px -25px rgba(0,0,0,.9); }
+    .lightbox .close { position: absolute; top: 16px; right: 16px; }
+    .lightbox .nav { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; }
+
+    .footer { color: var(--muted); font-size: 12px; text-align: center; padding: 16px 0 26px; }
+
+    /* 숨김 input */
+    #fileInput { display: none; }
+
+    @media (max-width: 560px) {
+      .toolbar { width: 100%; }
+      .title { flex-direction: column; align-items: flex-start; gap: 6px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="title">
+        <div>
+          <h1>작업 사진 갤러리</h1>
+          <p>이미지를 드래그하거나 버튼으로 추가하세요. (브라우저에만 저장됨)</p>
+        </div>
+        <div class="toolbar" role="toolbar" aria-label="갤러리 도구">
+          <button id="addBtn" class="btn primary" type="button">사진 추가</button>
+          <button id="exportBtn" class="btn" type="button" title="백업용 JSON 다운로드">내보내기</button>
+          <button id="importBtn" class="btn" type="button" title="백업 JSON 불러오기">가져오기</button>
+          <button id="clearBtn" class="btn" type="button" title="모두 삭제">모두 지우기</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="dropzone" class="dropzone" aria-label="드래그 앤 드롭 영역">
+      <p>여기에 이미지를 끌어다 놓거나 <strong>사진 추가</strong> 버튼을 누르세요. (PNG/JPG/WebP, ≤ 10MB)</p>
+    </div>
+
+    <section aria-live="polite" aria-busy="false">
+      <div id="gallery" class="gallery" role="list"></div>
+      <p id="emptyState" class="hint" style="display:none">아직 사진이 없습니다. 상단의 <b>사진 추가</b>를 눌러 시작하세요.</p>
+    </section>
+  </main>
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="lightbox" aria-modal="true" aria-hidden="true">
+    <div class="nav">
+      <button id="prevBtn" class="icon-btn" aria-label="이전">&#x276E;</button>
+      <button id="nextBtn" class="icon-btn" aria-label="다음">&#x276F;</button>
+    </div>
+    <img id="lightboxImg" alt="확대 이미지" />
+    <button class="icon-btn close" id="closeLightbox" aria-label="닫기">&#x2715;</button>
+  </div>
+
+  <input id="fileInput" type="file" accept="image/*" multiple />
+
+  <footer class="footer">브라우저(LocalStorage)에 저장됩니다 · 깃허브 페이지로 바로 배포 가능</footer>
+
+  <script>
+    (function() {
+      const STORAGE_KEY = 'simple-photo-gallery:v1';
+      const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+      const ACCEPT = ['image/png','image/jpeg','image/webp'];
+
+      /** @type {{id:string,name:string,dataUrl:string,created:number}[]} */
+      let items = [];
+      let currentIndex = -1; // lightbox index
+
+      const qs = (sel, el=document) => el.querySelector(sel);
+      const qsa = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+
+      const gallery = qs('#gallery');
+      const emptyState = qs('#emptyState');
+      const dz = qs('#dropzone');
+      const fileInput = qs('#fileInput');
+      const addBtn = qs('#addBtn');
+      const clearBtn = qs('#clearBtn');
+      const exportBtn = qs('#exportBtn');
+      const importBtn = qs('#importBtn');
+
+      const lightbox = qs('#lightbox');
+      const lightboxImg = qs('#lightboxImg');
+      const closeLightbox = qs('#closeLightbox');
+      const prevBtn = qs('#prevBtn');
+      const nextBtn = qs('#nextBtn');
+
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+        render();
+      }
+
+      function load() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          items = raw ? JSON.parse(raw) : [];
+        } catch (e) { items = []; }
+        render();
+      }
+
+      function render() {
+        gallery.innerHTML = '';
+        if (!items.length) {
+          emptyState.style.display = 'block';
+          return;
+        }
+        emptyState.style.display = 'none';
+        for (const [idx, it] of items.entries()) {
+          const card = document.createElement('article');
+          card.className = 'card';
+          card.setAttribute('role', 'listitem');
+          card.dataset.index = idx;
+
+          const img = document.createElement('img');
+          img.src = it.dataUrl; img.alt = it.name || '이미지'; img.loading = 'lazy';
+
+          const overlay = document.createElement('div');
+          overlay.className = 'overlay';
+          const name = document.createElement('div');
+          name.className = 'name'; name.title = it.name || '';
+          name.textContent = it.name || '무제';
+          overlay.appendChild(name);
+
+          const actions = document.createElement('div');
+          actions.className = 'actions';
+          const del = document.createElement('button');
+          del.className = 'icon-btn'; del.innerHTML = '&#x1F5D1;'; del.title = '삭제';
+          del.addEventListener('click', (e) => { e.stopPropagation(); removeAt(idx); });
+          actions.appendChild(del);
+
+          card.appendChild(img); card.appendChild(overlay); card.appendChild(actions);
+          card.addEventListener('click', () => openLightbox(idx));
+          gallery.appendChild(card);
+        }
+      }
+
+      function removeAt(index) {
+        if (index < 0 || index >= items.length) return;
+        items.splice(index, 1);
+        save();
+      }
+
+      async function addFiles(fileList) {
+        if (!fileList || !fileList.length) return;
+        const arr = Array.from(fileList);
+        for (const f of arr) {
+          if (!ACCEPT.includes(f.type)) { toast(`지원하지 않는 형식: ${f.name}`); continue; }
+          if (f.size > MAX_SIZE) { toast(`용량 초과(>10MB): ${f.name}`); continue; }
+          const dataUrl = await toDataURL(f);
+          items.unshift({ id: crypto.randomUUID(), name: f.name, dataUrl, created: Date.now() });
+        }
+        save();
+      }
+
+      function toDataURL(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject; reader.readAsDataURL(file);
+        });
+      }
+
+      // Drag & Drop
+      dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+      dz.addEventListener('drop', (e) => {
+        e.preventDefault(); dz.classList.remove('dragover');
+        addFiles(e.dataTransfer.files);
+      });
+
+      // Buttons
+      addBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => addFiles(e.target.files));
+
+      clearBtn.addEventListener('click', () => {
+        if (!items.length) { toast('지울 항목이 없습니다.'); return; }
+        if (confirm('정말 모두 삭제할까요?')) { items = []; save(); }
+      });
+
+      exportBtn.addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'gallery-backup.json'; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 500);
+      });
+
+      importBtn.addEventListener('click', () => {
+        const inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = 'application/json';
+        inp.onchange = async () => {
+          const f = inp.files?.[0]; if (!f) return;
+          const text = await f.text();
+          try {
+            const data = JSON.parse(text);
+            if (Array.isArray(data)) { items = data; save(); toast('가져오기 완료'); }
+            else { toast('형식이 올바르지 않습니다.'); }
+          } catch { toast('JSON 파싱 오류'); }
+        };
+        inp.click();
+      });
+
+      // Lightbox
+      function openLightbox(index) {
+        currentIndex = index;
+        lightboxImg.src = items[index].dataUrl;
+        lightbox.classList.add('open');
+        lightbox.setAttribute('aria-hidden', 'false');
+      }
+      function closeLb() {
+        lightbox.classList.remove('open');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImg.src = '';
+      }
+      function nav(delta) {
+        if (!items.length) return;
+        currentIndex = (currentIndex + delta + items.length) % items.length;
+        lightboxImg.src = items[currentIndex].dataUrl;
+      }
+      closeLightbox.addEventListener('click', closeLb);
+      prevBtn.addEventListener('click', () => nav(-1));
+      nextBtn.addEventListener('click', () => nav(1));
+      lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLb(); });
+      document.addEventListener('keydown', (e) => {
+        if (!lightbox.classList.contains('open')) return;
+        if (e.key === 'Escape') closeLb();
+        if (e.key === 'ArrowLeft') nav(-1);
+        if (e.key === 'ArrowRight') nav(1);
+      });
+
+      // Tiny toast
+      let toastTimer;
+      function toast(msg) {
+        let el = qs('#_toast');
+        if (!el) {
+          el = document.createElement('div'); el.id = '_toast';
+          el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.25);color:#e2e8f0;padding:10px 14px;border-radius:12px;z-index:60;box-shadow:0 10px 30px -15px rgba(0,0,0,.7)';
+          document.body.appendChild(el);
+        }
+        el.textContent = msg; el.style.opacity = '1';
+        clearTimeout(toastTimer); toastTimer = setTimeout(() => el.style.opacity = '0', 1800);
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>
